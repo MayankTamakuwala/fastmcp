@@ -439,8 +439,9 @@ def _with_parameter_overrides(
                 # Move the Field's constraints into the annotation, so they
                 # still apply once the override replaces its default.
                 metadata = (field,) if field.default_factory is None else field.metadata
-                base_type: Any = annotations.get(name, Any)
-                annotations[name] = Annotated[base_type, *metadata]
+                if metadata:
+                    base_type: Any = annotations.get(name, Any)
+                    annotations[name] = Annotated[base_type, *metadata]
             param = param.replace(default=defaults[name])
         if name in annotations:
             param = param.replace(annotation=annotations[name])

@@ -312,6 +312,19 @@ async def test_field_factory_constraints_survive_an_inherited_default():
         await tool.run({"tags": ["a", "b"]})
 
 
+async def test_unconstrained_field_factory_takes_an_inherited_default():
+    async def transform(items: list[int] = Field(default_factory=list)) -> str:
+        return repr(items)
+
+    def parent(items: list[int] | None = None) -> str:
+        return "parent"
+
+    tool = Tool.from_tool(Tool.from_function(parent), transform_fn=transform)
+
+    assert _text(await tool.run({})) == "None"
+    assert _text(await tool.run({"items": [1, "2"]})) == "[1, 2]"
+
+
 async def test_function_default_is_used_when_the_parent_has_none():
     async def transform(p: Point, labels: set[str] = {"b", "a"}) -> str:  # noqa: B006
         return f"{type(labels).__name__} {sorted(labels)}"
