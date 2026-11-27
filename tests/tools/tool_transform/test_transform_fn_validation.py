@@ -432,6 +432,24 @@ async def test_kwargs_transform_fn_still_forwards_to_the_parent():
     assert _text(await tool.run(VALID)) == "parent p=Point when=date"
 
 
+async def test_annotated_kwargs_values_are_validated():
+    """An annotation on `**kwargs` validates each value it collects."""
+
+    def parent(a: str, b: int) -> str:
+        return "parent"
+
+    async def transform(a: str, **kwargs: int) -> str:
+        return " ".join(
+            f"{key}={type(value).__name__}" for key, value in kwargs.items()
+        )
+
+    tool = Tool.from_tool(Tool.from_function(parent), transform_fn=transform)
+
+    assert _text(await tool.run({"a": "x", "b": "7"})) == "b=int"
+    with pytest.raises(ValidationError):
+        await tool.run({"a": "x", "b": "seven"})
+
+
 async def test_context_parameter_is_injected_and_others_converted():
     async def transform(p: Point, ctx: Context) -> str:
         return f"p={type(p).__name__} ctx={type(ctx).__name__}"
