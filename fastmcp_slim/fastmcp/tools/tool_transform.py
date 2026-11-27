@@ -433,6 +433,10 @@ def _with_parameter_overrides(
             param = param.replace(kind=inspect.Parameter.KEYWORD_ONLY)
         if name in types:
             annotations[name] = types[name]
+            if isinstance(param.default, FieldInfo):
+                # The override replaces the annotation, constraints and all,
+                # so only the Field's default is kept.
+                param = param.replace(default=_field_default(param.default))
         if name in defaults:
             field = param.default
             if isinstance(field, FieldInfo):
@@ -455,6 +459,15 @@ def _with_parameter_overrides(
     wrapper.__qualname__ = getattr(fn, "__qualname__", wrapper.__qualname__)
     wrapper.__module__ = getattr(fn, "__module__", wrapper.__module__)
     return wrapper
+
+
+def _field_default(field: FieldInfo) -> Any:
+    """A `Field`'s default, without the constraints it carries."""
+    if field.default_factory is not None:
+        return Field(default_factory=field.default_factory)
+    if field.default is PydanticUndefined:
+        return inspect.Parameter.empty
+    return field.default
 
 
 def _is_json_form_of(python_default: Any, schema_default: Any) -> bool:

@@ -325,6 +325,44 @@ async def test_unconstrained_field_factory_takes_an_inherited_default():
     assert _text(await tool.run({"items": [1, "2"]})) == "[1, 2]"
 
 
+async def _gt_default(n: int = Field(5, gt=0)) -> str:
+    return f"{type(n).__name__} {n!r}"
+
+
+async def _gt_factory(n: int = Field(default_factory=lambda: 5, gt=0)) -> str:
+    return f"{type(n).__name__} {n!r}"
+
+
+async def _gt_annotated(n: Annotated[int, Field(gt=0)] = 5) -> str:
+    return f"{type(n).__name__} {n!r}"
+
+
+@pytest.mark.parametrize("transform_fn", [_gt_default, _gt_factory, _gt_annotated])
+async def test_arg_transform_type_replaces_field_constraints(transform_fn):
+    """`ArgTransform(type=...)` replaces the annotation, constraints included."""
+
+    def required(n: int) -> str:
+        return "parent"
+
+    def defaulted(n: int = 1) -> str:
+        return "parent"
+
+    retyped = Tool.from_tool(
+        Tool.from_function(required),
+        transform_fn=transform_fn,
+        transform_args={"n": ArgTransform(type=str)},
+    )
+    redefaulted = Tool.from_tool(
+        Tool.from_function(defaulted),
+        transform_fn=transform_fn,
+        transform_args={"n": ArgTransform(type=str, default="ok")},
+    )
+
+    assert _text(await retyped.run({"n": "hello"})) == "str 'hello'"
+    assert _text(await redefaulted.run({})) == "str 'ok'"
+    assert _text(await redefaulted.run({"n": "hello"})) == "str 'hello'"
+
+
 async def test_function_default_is_used_when_the_parent_has_none():
     async def transform(p: Point, labels: set[str] = {"b", "a"}) -> str:  # noqa: B006
         return f"{type(labels).__name__} {sorted(labels)}"
